@@ -87,7 +87,7 @@ public class Softbody : MonoBehaviour
     {
       SolvePlaneCollisions(predictedPositions);
       SolveConstraints(predictedPositions, constraints, particles, invStiffness);
-      ShapeMatch(particles, predictedPositions, invStiffness);
+      //ShapeMatch(particles, predictedPositions, invStiffness);
     }
 
     for (int i = 0; i < particles.Length; i++)
@@ -99,20 +99,23 @@ public class Softbody : MonoBehaviour
 
   static void ShapeMatch(Particle[] particles, Vector2[] predictedPositions, float InvStiffness)
   {
-    Vector2 centerOfMass = new Vector2();
+    float centerOfMassx = 0;
+    float centerOfMassy = 0;
     for (int i = 0; i < predictedPositions.Length; i++)
     {
-      centerOfMass += predictedPositions[i];
+      centerOfMassx += predictedPositions[i].x;
+      centerOfMassy += predictedPositions[i].y;
     }
-    centerOfMass /= predictedPositions.Length;
+    centerOfMassx /= predictedPositions.Length;
+    centerOfMassy /= predictedPositions.Length;
 
     float[] A = new float[4];
     for (int i = 0; i < predictedPositions.Length; i++)
     {
-      A[0] += particles[i].m * (predictedPositions[i].x - centerOfMass.x) * particles[i].q.x;
-      A[1] += particles[i].m * (predictedPositions[i].x - centerOfMass.x) * particles[i].q.y;
-      A[2] += particles[i].m * (predictedPositions[i].y - centerOfMass.y) * particles[i].q.x;
-      A[3] += particles[i].m * (predictedPositions[i].y - centerOfMass.y) * particles[i].q.y;
+      A[0] += particles[i].m * (predictedPositions[i].x - centerOfMassx) * particles[i].q.x;
+      A[1] += particles[i].m * (predictedPositions[i].x - centerOfMassx) * particles[i].q.y;
+      A[2] += particles[i].m * (predictedPositions[i].y - centerOfMassy) * particles[i].q.x;
+      A[3] += particles[i].m * (predictedPositions[i].y - centerOfMassy) * particles[i].q.y;
     }
 
     float det = Mathf.Sign(A[0] * A[3] - A[1] * A[2]);
@@ -129,11 +132,16 @@ public class Softbody : MonoBehaviour
     A[2] = n2.x;
     A[3] = n2.y;
 
+    float magic = 0.007f;
+
     for (int i = 0; i < particles.Length; i++)
     {
-      Vector2 q = particles[i].q;
-      Vector2 g = new Vector2(A[0] * q.x + A[1] * q.y, A[2] * q.x + A[3] * q.y) + centerOfMass;
-      predictedPositions[i] += 0.01f * (g - predictedPositions[i]);
+      //Vector2 q = particles[i].q;
+      //Vector2 g = new Vector2(A[0] * q.x + A[1] * q.y, A[2] * q.x + A[3] * q.y) + centerOfMass;
+      float gx = (A[0] * particles[i].q.x + A[1] * particles[i].q.y) + centerOfMassx;
+      float gy = (A[2] * particles[i].q.x + A[3] * particles[i].q.y) + centerOfMassy;
+      predictedPositions[i].x += magic * (gx - predictedPositions[i].x);
+      predictedPositions[i].y += magic * (gy - predictedPositions[i].y);
     }
   }
 
@@ -146,9 +154,13 @@ public class Softbody : MonoBehaviour
 
     for (int i = 0; i < constraints.Length; i++)
     {
-      Vector2 n = predictedPositions[constraints[i].x1] - predictedPositions[constraints[i].x2];
-      float dd = n.magnitude - constraints[i].d;
-      n.Normalize();
+      float nx = predictedPositions[constraints[i].x1].x - predictedPositions[constraints[i].x2].x;
+      float ny = predictedPositions[constraints[i].x1].y - predictedPositions[constraints[i].x2].y;
+      float length = Mathf.Sqrt(nx*nx+ny*ny);
+      float dd = length - constraints[i].d;
+      nx /= length;
+      ny /= length;
+
       float w1 = particles[constraints[i].x1].m;
       float w2 = particles[constraints[i].x2].m;
 
@@ -157,8 +169,10 @@ public class Softbody : MonoBehaviour
       constraints[i].l += dl;
 
       //Update positions
-      predictedPositions[constraints[i].x1] -= w1 * n * dl;
-      predictedPositions[constraints[i].x2] += w2 * n * dl;
+      predictedPositions[constraints[i].x1].x -= nx * (dl * w1);
+      predictedPositions[constraints[i].x1].y -= ny * (dl * w1);
+      predictedPositions[constraints[i].x2].x += nx * (dl * w2);
+      predictedPositions[constraints[i].x2].y += ny * (dl * w2);
     }
   }
 

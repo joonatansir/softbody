@@ -34,7 +34,10 @@ public class RopeSoftBody : MonoBehaviour
 	
 	void Update()
   {
-    Softbody.SoftBodyUpdate(m_particles, m_constraints, Iteration, InvStiffness);
+    m_particles[0].x = transform.position;
+
+    float stiffness = 1f / (InvStiffness * InvStiffness);
+    Softbody.SoftBodyUpdate(m_particles, m_constraints, Iteration, stiffness);
 
     for (int i = 0; i < numSegments - 1; i++)
     {
